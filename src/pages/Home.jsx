@@ -6,7 +6,7 @@ import { NavLink } from "react-router-dom";
 import Testimonials from "../components/Testimonials/Testimonials";
 import { PriceContext } from "../PriceContext";
 import { Error, Verified } from "@mui/icons-material";
-import Pricing from "../components/Pricing/Pricing";
+import Pricing2 from "../components/Pricing/Pricing2";
 import Tips from "./Tips";
 
 export default function Home({ userData }) {
@@ -96,7 +96,7 @@ export default function Home({ userData }) {
 			<section>
 				<h1>Pricing</h1>
 				<h2>Get VIP Membership</h2>
-				<Pricing />
+				<Pricing2 />
 			</section>
 			<section className="tables">
 				{filteredTips && filteredTips.length > 0 && (

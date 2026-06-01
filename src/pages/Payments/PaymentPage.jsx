@@ -18,12 +18,12 @@ export default function PaymentPage({ setUserData }) {
   // Payment methods
   const paymentMethods = [
     { id: "mpesa", label: "Mobile 📲" },
-    {
+    /*{
       id: "paypal",
       label: "PayPal",
       icon: <FontAwesomeIcon icon={faPaypal} />,
     },
-    /*{
+    {
       id: "googlepay",
       label: "Google Pay",
       icon: <div className="icons8-google"></div>,//<FontAwesomeIcon icon={faGooglePay} />,
