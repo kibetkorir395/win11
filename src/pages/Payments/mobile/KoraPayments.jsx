@@ -1,6 +1,7 @@
 import { useContext, useState, useEffect, useRef } from "react";
 import { AuthContext } from "../../../AuthContext";
 import { PriceContext } from "../../../PriceContext";
+import { useCurrency } from "../../../CurrencyContext";
 import {
   SUBSCRIPTION_PLANS, 
   getSubscriptionPeriod,
@@ -13,25 +14,30 @@ import "../Payments.scss";
 export default function KoraPayments({ setUserData }) {
   const { price, setPrice } = useContext(PriceContext);
   const { currentUser } = useContext(AuthContext);
+  const { 
+    selectedCountry, 
+    setSelectedCountry,
+    showCountrySelector,
+    setShowCountrySelector,
+    userCountry,
+    convertPrice,
+    getSymbol,
+    getCurrencyCode,
+    getCountries,
+    isLoadingRate,
+    symbol,
+    currency
+  } = useCurrency();
+  
   const [processing, setProcessing] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState("Kenya");
   const [convertedPrices, setConvertedPrices] = useState({
     daily: 250,
     weekly: 850,
     monthly: 3000,
     yearly: 8500,
   });
-  const [isLoadingRate, setIsLoadingRate] = useState(false);
-  const [userCountry, setUserCountry] = useState(null);
-  const [showCountrySelector, setShowCountrySelector] = useState(false);
   const [koraLoaded, setKoraLoaded] = useState(false);
   const scriptLoadedRef = useRef(false);
-
-  // Country configurations
-  const countries = {
-    Nigeria: { code: "NG", currency: "NGN", flag: "🇳🇬", rate: 10.63 },
-    Kenya: { code: "KE", currency: "KES", flag: "🇰🇪", rate: 1 },
-  };
 
   // Price options in KES (base currency)
   const priceOptions = {
@@ -100,96 +106,20 @@ export default function KoraPayments({ setUserData }) {
     document.head.appendChild(script);
   }, []);
 
-  // Detect user's country using IP geolocation
-  const detectUserCountry = async () => {
-    try {
-      const response = await fetch("https://ipapi.co/json/");
-      if (response.ok) {
-        const data = await response.json();
-        const countryCode = data.country_code;
-
-        const matchedCountry = Object.entries(countries).find(
-          ([_, config]) => config.code === countryCode
-        );
-
-        if (matchedCountry) {
-          setSelectedCountry(matchedCountry[0]);
-          setUserCountry(matchedCountry[0]);
-          return;
-        }
-      }
-
-      setSelectedCountry("Kenya");
-      setUserCountry("Kenya");
-    } catch (error) {
-      console.error("Error detecting country:", error);
-      setSelectedCountry("Kenya");
-      setUserCountry("Kenya");
-    }
-  };
-
-  // Convert prices for Nigeria only
-  const convertToNaira = async () => {
-    setIsLoadingRate(true);
-    try {
-      // Fixed conversion rate for NGN (10.63 NGN = 1 KES)
-      const rate = countries.Nigeria.rate;
-
-      setConvertedPrices({
-        daily: Math.round(priceOptions.Daily * rate),
-        weekly: Math.round(priceOptions.Weekly * rate),
-        monthly: Math.round(priceOptions.Monthly * rate),
-        yearly: Math.round(priceOptions.Yearly * rate),
-      });
-    } catch (error) {
-      console.error("Error converting to Naira:", error);
-      // Fallback conversion
-      const fallbackRate = 10.63;
-      setConvertedPrices({
-        daily: Math.round(priceOptions.Daily * fallbackRate),
-        weekly: Math.round(priceOptions.Weekly * fallbackRate),
-        monthly: Math.round(priceOptions.Monthly * fallbackRate),
-        yearly: Math.round(priceOptions.Yearly * fallbackRate),
-      });
-    } finally {
-      setIsLoadingRate(false);
-    }
-  };
-
-  // Reset to KES prices
-  const resetToKesPrices = () => {
+  // Update converted prices when country changes
+  useEffect(() => {
+    const rate = getCountries()[selectedCountry]?.rate || 1;
     setConvertedPrices({
-      daily: priceOptions.Daily,
-      weekly: priceOptions.Weekly,
-      monthly: priceOptions.Monthly,
-      yearly: priceOptions.Yearly,
+      daily: Math.round(priceOptions.Daily * rate),
+      weekly: Math.round(priceOptions.Weekly * rate),
+      monthly: Math.round(priceOptions.Monthly * rate),
+      yearly: Math.round(priceOptions.Yearly * rate),
     });
-  };
-
-  // Update prices when country changes
-  useEffect(() => {
-    if (selectedCountry === "Nigeria") {
-      convertToNaira();
-    } else {
-      resetToKesPrices();
-    }
   }, [selectedCountry]);
-
-  // Detect user country on component mount
-  useEffect(() => {
-    detectUserCountry();
-  }, []);
 
   const getCurrentConvertedPrice = () => {
     const period = getSubscriptionPeriod(price).toLowerCase();
     return convertedPrices[period] || price;
-  };
-
-  const getCurrencySymbol = () => {
-    if (selectedCountry === "Nigeria") {
-      return "₦";
-    }
-    return "KSH";
   };
 
   const handlePayment = () => {
@@ -215,7 +145,7 @@ export default function KoraPayments({ setUserData }) {
 
     setProcessing(true);
 
-    const countryConfig = countries[selectedCountry];
+    const countryConfig = getCountries()[selectedCountry];
     const amountToPay = Math.round(getCurrentConvertedPrice());
     const reference = `ref-${Date.now()}-${Math.random()
       .toString(36)
@@ -271,6 +201,8 @@ export default function KoraPayments({ setUserData }) {
     setPrice(planValue);
   };
 
+  const countries = getCountries();
+
   return (
     <div className="kora-payment-wrapper">
       {/* Country Selection Section */}
@@ -320,7 +252,7 @@ export default function KoraPayments({ setUserData }) {
       <div className="plan-selector">
         {subscriptionPlans.map((plan) => {
           const convertedPrice = convertedPrices[plan.id] || plan.value;
-          const currency = getCurrencySymbol();
+          const currencySymbol = getSymbol();
 
           return (
             <label
@@ -338,7 +270,7 @@ export default function KoraPayments({ setUserData }) {
               <span className="plan-price">
                 {isLoadingRate
                   ? "Loading..."
-                  : `${currency} ${Math.round(convertedPrice)}`}
+                  : `${currencySymbol} ${Math.round(convertedPrice)}`}
               </span>
             </label>
           );
@@ -350,7 +282,7 @@ export default function KoraPayments({ setUserData }) {
           GET {getPlanName(price).toUpperCase()} VIP FOR{" "}
           {isLoadingRate
             ? "Loading..."
-            : `${getCurrencySymbol()} ${Math.round(
+            : `${getSymbol()} ${Math.round(
                 getCurrentConvertedPrice()
               )}`}
         </h3>

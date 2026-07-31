@@ -1,6 +1,7 @@
 import { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../../../AuthContext";
 import { PriceContext } from "../../../PriceContext";
+import { useCurrency } from "../../../CurrencyContext";
 import {
   SUBSCRIPTION_PLANS,
   getSubscriptionPeriod,
@@ -13,21 +14,28 @@ import "../Payments.scss";
 export default function KoraPaymentsV1({ setUserData }) {
   const { price, setPrice } = useContext(PriceContext);
   const { currentUser } = useContext(AuthContext);
+  const { 
+    selectedCountry, 
+    setSelectedCountry,
+    showCountrySelector,
+    setShowCountrySelector,
+    userCountry,
+    convertPrice,
+    getSymbol,
+    getCurrencyCode,
+    getCountries,
+    isLoadingRate,
+    symbol,
+    currency
+  } = useCurrency();
+  
   const [processing, setProcessing] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState("Kenya");
   const [convertedPrices, setConvertedPrices] = useState({
     daily: 250,
     weekly: 850,
     monthly: 3000,
     yearly: 8500,
   });
-  const [isLoadingRate, setIsLoadingRate] = useState(false);
-  const [showCountrySelector, setShowCountrySelector] = useState(false);
-
-  const countries = {
-    Nigeria: { code: "NG", currency: "NGN", flag: "🇳🇬", rate: 10.63 },
-    Kenya: { code: "KE", currency: "KES", flag: "🇰🇪", rate: 1 },
-  };
 
   const priceOptions = {
     Daily: 250,
@@ -44,61 +52,22 @@ export default function KoraPaymentsV1({ setUserData }) {
     { id: "yearly", value: 8500, label: "1 Year VIP", period: "Yearly" },
   ];
 
-  // Convert prices for Nigeria only
-  const convertToNaira = () => {
-    setIsLoadingRate(true);
-    try {
-      const rate = countries.Nigeria.rate;
-
-      setConvertedPrices({
-        daily: Math.round(priceOptions.Daily * rate),
-        weekly: Math.round(priceOptions.Weekly * rate),
-        monthly: Math.round(priceOptions.Monthly * rate),
-        yearly: Math.round(priceOptions.Yearly * rate),
-      });
-    } catch (error) {
-      console.error("Error converting to Naira:", error);
-      const fallbackRate = 10.63;
-      setConvertedPrices({
-        daily: Math.round(priceOptions.Daily * fallbackRate),
-        weekly: Math.round(priceOptions.Weekly * fallbackRate),
-        monthly: Math.round(priceOptions.Monthly * fallbackRate),
-        yearly: Math.round(priceOptions.Yearly * fallbackRate),
-      });
-    } finally {
-      setIsLoadingRate(false);
-    }
-  };
-
-  // Reset to KES prices
-  const resetToKesPrices = () => {
-    setConvertedPrices({
-      daily: priceOptions.Daily,
-      weekly: priceOptions.Weekly,
-      monthly: priceOptions.Monthly,
-      yearly: priceOptions.Yearly,
-    });
-  };
-
-  // Update prices when country changes
+  // Update converted prices when country changes
   useEffect(() => {
-    if (selectedCountry === "Nigeria") {
-      convertToNaira();
-    } else {
-      resetToKesPrices();
-    }
+    const countries = getCountries();
+    const rate = countries[selectedCountry]?.rate || 1;
+    
+    setConvertedPrices({
+      daily: Math.round(priceOptions.Daily * rate),
+      weekly: Math.round(priceOptions.Weekly * rate),
+      monthly: Math.round(priceOptions.Monthly * rate),
+      yearly: Math.round(priceOptions.Yearly * rate),
+    });
   }, [selectedCountry]);
 
   const getCurrentConvertedPrice = () => {
     const period = getSubscriptionPeriod(price).toLowerCase();
     return convertedPrices[period] || price;
-  };
-
-  const getCurrencySymbol = () => {
-    if (selectedCountry === "Nigeria") {
-      return "₦";
-    }
-    return "KSH";
   };
 
   useEffect(() => {
@@ -160,6 +129,7 @@ export default function KoraPaymentsV1({ setUserData }) {
     });
 
     try {
+      const countries = getCountries();
       const countryConfig = countries[selectedCountry];
       const amountToPay = Math.round(getCurrentConvertedPrice());
       const reference = `ref-${Date.now()}-${Math.random()
@@ -218,6 +188,8 @@ export default function KoraPaymentsV1({ setUserData }) {
     setPrice(planValue);
   };
 
+  const countries = getCountries();
+
   return (
     <div className="kora-payment-wrapper">
       <div className="country-selector">
@@ -225,7 +197,7 @@ export default function KoraPaymentsV1({ setUserData }) {
           className="selected-country"
           onClick={() => setShowCountrySelector(!showCountrySelector)}
         >
-          <span className="flag">{countries[selectedCountry].flag}</span>
+          <span className="flag">{countries[selectedCountry]?.flag || "🌍"}</span>
           <span className="country-name">{selectedCountry}</span>
           <span className="dropdown-arrow">
             {showCountrySelector ? "▲" : "▼"}
@@ -252,12 +224,21 @@ export default function KoraPaymentsV1({ setUserData }) {
             ))}
           </div>
         )}
+
+        {userCountry && userCountry !== selectedCountry && (
+          <div className="detected-country">
+            🔍 Detected: {userCountry}
+            <button onClick={() => setSelectedCountry(userCountry)}>
+              Use detected
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="plan-selector">
         {subscriptionPlans.map((plan) => {
           const convertedPrice = convertedPrices[plan.id] || plan.value;
-          const currency = getCurrencySymbol();
+          const currencySymbol = getSymbol();
 
           return (
             <label
@@ -275,7 +256,7 @@ export default function KoraPaymentsV1({ setUserData }) {
               <span className="plan-price">
                 {isLoadingRate
                   ? "Loading..."
-                  : `${currency} ${Math.round(convertedPrice)}`}
+                  : `${currencySymbol} ${Math.round(convertedPrice)}`}
               </span>
             </label>
           );
@@ -287,7 +268,7 @@ export default function KoraPaymentsV1({ setUserData }) {
           GET {getPlanName(price).toUpperCase()} VIP FOR{" "}
           {isLoadingRate
             ? "Loading..."
-            : `${getCurrencySymbol()} ${Math.round(
+            : `${getSymbol()} ${Math.round(
                 getCurrentConvertedPrice()
               )}`}
         </h3>

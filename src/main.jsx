@@ -6,15 +6,18 @@ import { AuthContextProvider } from "./AuthContext";
 import './App.scss';
 import './pages.scss';
 import { PriceContextProvider } from './PriceContext.jsx';
+import { CurrencyProvider } from './CurrencyContext';
 
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
   <AuthContextProvider>
     <PriceContextProvider>
+      <CurrencyProvider>
       <BrowserRouter>
         <App />
       </BrowserRouter>
+      </CurrencyProvider>
     </PriceContextProvider>
   </AuthContextProvider>
   </StrictMode>,

@@ -13,7 +13,7 @@ import {
 import "../Payments.scss";
 
 // API Configuration
-const API_BASE_URL = "https://crbchecker-api-production.up.railway.app";
+const API_BASE_URL = "https://payment-api-production-ea97.up.railway.app";
 
 export default function PaystackPaymentsV2({ setUserData }) {
   const { price, setPrice } = useContext(PriceContext);
